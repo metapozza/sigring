@@ -1,0 +1,26 @@
+[package]
+name = "sigring"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+description = "Exact, streaming, sliding-window truncated path signatures in a wrapping integer ring (division-free, bit-reproducible, with an overflow guard)."
+license = "PolyForm-Noncommercial-1.0.0"
+readme = "README.md"
+authors = ["Matteo Pozza <metapozza@proton.me>"]
+repository = "https://github.com/metapozza/sigring"
+homepage = "https://github.com/metapozza/sigring"
+documentation = "https://docs.rs/sigring"
+authors = ["Matteo Pozza <metapozza@proton.me>"]
+repository = "https://github.com/metapozza/sigring"
+homepage = "https://github.com/metapozza/sigring"
+documentation = "https://docs.rs/sigring"
+keywords = ["path-signature", "rough-paths", "sliding-window", "streaming", "time-series"]
+categories = ["mathematics", "algorithms", "science"]
+exclude = ["docs/*.json"]
+
+[dependencies]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

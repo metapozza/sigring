@@ -1,0 +1,6 @@
+[build-system]
+requires=["maturin>=1.5"]
+build-backend="maturin"
+[project]
+name="sigring_py"
+version="0.1.0"
