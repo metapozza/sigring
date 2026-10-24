@@ -1,6 +1,6 @@
 [package]
 name = "sigring_py"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "PolyForm-Noncommercial-1.0.0"
 publish = false
@@ -12,7 +12,7 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
 numpy = "0.23"
-sigring = "0.1.0"
+sigring = "0.1"
 
 [profile.release]
 opt-level = 3

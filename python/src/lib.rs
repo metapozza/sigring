@@ -1,11 +1,11 @@
-use numpy::{PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2, PyArrayMethods, IntoPyArray};
+use numpy::{PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2, IntoPyArray};
 use pyo3::prelude::*;
 use pyo3::exceptions::PyValueError;
 use sigring::{SigRing, LogSigPrep};
 
 enum Eng { I64(SigRing<i64>), I128(SigRing<i128>) }
 
-#[pyclass]
+#[pyclass(module = "sigring")]
 struct WindowSig {
     eng: Eng, prep: LogSigPrep, d: usize, w: usize, scale: f64,
     ring: Vec<i64>, head: usize, filled: usize,

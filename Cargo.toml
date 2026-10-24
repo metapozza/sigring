@@ -1,6 +1,6 @@
 [package]
 name = "sigring"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.70"
 description = "Exact, streaming, sliding-window truncated path signatures in a wrapping integer ring (division-free, bit-reproducible, with an overflow guard)."
