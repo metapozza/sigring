@@ -1,0 +1,139 @@
+# Release pipeline: tag vX.Y.Z -> checks -> build wheels + sdist -> publish to crates.io and PyPI via OIDC
+# trusted publishing (no API tokens stored anywhere) -> GitHub release.
+# Manual run (workflow_dispatch) builds everything but publishes nothing.
+name: release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Versions agree (tag, crate, wheel, citation) and changelog has a section
+        run: |
+          set -euo pipefail
+          crate=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          pyc=$(sed -n 's/^version = "\(.*\)"/\1/p' python/Cargo.toml | head -1)
+          pyp=$(sed -n 's/^version = "\(.*\)"/\1/p' python/pyproject.toml | head -1)
+          cff=$(sed -n 's/^version: \(.*\)/\1/p' CITATION.cff | head -1)
+          echo "crate=$crate python-crate=$pyc pyproject=$pyp cff=$cff"
+          [ "$crate" = "$pyc" ] && [ "$crate" = "$pyp" ] && [ "$crate" = "$cff" ]
+          grep -q "^## $crate\$" CHANGELOG.md
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then [ "${GITHUB_REF_NAME}" = "v$crate" ]; fi
+      - run: cargo test --release
+      - run: cargo package
+
+  wheels:
+    needs: verify
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { os: ubuntu-latest,  target: x86_64,  manylinux: "2_28" }
+          - { os: ubuntu-latest,  target: aarch64, manylinux: "2_28" }
+          - { os: macos-latest,   target: universal2-apple-darwin }
+          - { os: windows-latest, target: x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build against the checked-out crate (independent of crates.io publish timing)
+        shell: bash
+        run: |
+          mkdir -p python/.cargo
+          printf '[patch.crates-io]\nsigring = { path = ".." }\n' > python/.cargo/config.toml
+      - uses: PyO3/maturin-action@v1
+        with:
+          working-directory: python
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux || 'auto' }}
+          args: --release --out dist
+      - name: Smoke-test the wheel (native runners only)
+        if: ${{ matrix.target == 'x86_64' || matrix.target == 'x64' || matrix.target == 'universal2-apple-darwin' }}
+        shell: bash
+        run: |
+          pip install numpy
+          pip install --no-index --find-links python/dist sigring
+          cd "$RUNNER_TEMP" && python "$GITHUB_WORKSPACE/python/examples/quant_ticks.py"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.target }}
+          path: python/dist/*.whl
+
+  sdist:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          working-directory: python
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: python/dist/*.tar.gz
+
+  publish-crate:
+    # Needs a GitHub environment named "release" (add required reviewers) and a crates.io Trusted Publisher
+    # (owner metapozza, repo sigring, workflow release.yml, environment release).
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [verify, wheels, sdist]
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+      - run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+  publish-pypi:
+    # Needs a GitHub environment named "pypi" (add required reviewers) and a PyPI Trusted Publisher
+    # (owner metapozza, repo sigring, workflow release.yml, environment pypi).
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [publish-crate]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - run: ls -l dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [publish-pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Notes from CHANGELOG
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          awk -v h="## $v" '$0==h{f=1;next} /^## /{f=0} f' CHANGELOG.md > notes.md
+          test -s notes.md
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "sigring $GITHUB_REF_NAME" --notes-file notes.md --verify-tag
