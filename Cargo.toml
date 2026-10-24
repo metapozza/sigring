@@ -12,7 +12,7 @@ homepage = "https://github.com/metapozza/sigring"
 documentation = "https://docs.rs/sigring"
 keywords = ["path-signature", "rough-paths", "sliding-window", "streaming", "time-series"]
 categories = ["mathematics", "algorithms", "science"]
-exclude = ["docs/*.json", "det", "bench", ".github"]
+exclude = ["docs/*.json", "det", "bench", ".github", "paper"]
 
 [dependencies]
 
