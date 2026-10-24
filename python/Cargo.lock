@@ -239,7 +239,7 @@ checksum = "94f7dd00e2e7a6d6419a092d7216dce956fcb5d6dee4c35565cd04b1ad25c57b"
 
 [[package]]
 name = "sigring_py"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "numpy",
  "pyo3",
@@ -274,3 +274,7 @@ name = "unindent"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7264e107f553ccae879d21fbea1d6724ac785e8c3bfc762137959b5802826ef3"
+
+[[patch.unused]]
+name = "sigring"
+version = "0.1.2"

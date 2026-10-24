@@ -16,3 +16,9 @@ print(sigs.shape, ws.guard_ok())           # guard_ok(): rigorous overflow certi
 ```
 
 Readouts: `"sig"`, `"logsig_expanded"`, `"logsig_words"`, `"logsig_brackets"`. See the repository README for guarantees, benchmarks and limitations.
+
+## Quant use, support, licensing
+
+- Example with a per-window exactness check: `python/examples/quant_ticks.py` in the repository.
+- Check `guard_ok()` for every window you use; `bits=128` gives headroom for clock gaps and large increments.
+- Questions: https://github.com/metapozza/sigring/discussions . Evaluation help, commercial licences, roles: metapozza@proton.me

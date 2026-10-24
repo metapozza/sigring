@@ -21,10 +21,27 @@ cargo add sigring            # Rust (crates.io)
 pip install sigring numpy    # Python wheel (CPython >= 3.9, Linux x86_64 wheel; other platforms build from source and need a Rust toolchain)
 ```
 
+## For quant and systematic-trading use
+
+**Where it fits:** research and software-level live pipelines that need windowed signature features on tick or bar streams and cannot afford to recompute every window or to trust a drifting float state. A tick update costs about 0.2–0.5 µs per core at small shapes (d=2, N=4, W=64; see the measured table below). It is **not** an FPGA or nanosecond-hot-path component, and it makes no claim about trading edge: it is a feature-extraction engine.
+
+**Why exactness matters on market data:** the float fused update (which subtracts old increments via an inverse) can be badly wrong after one large increment, such as an overnight gap in the time coordinate. On real E-mini S&P tick data with a 6.5-hour gap, the float inverse was off by 4.3e9 on (price, time) while the integer ring matched the exact oracle. A synthetic, self-contained illustration is in `examples/quant_gap.rs` (`cargo run --release --example quant_gap`): float worst relative error 3.2 in gap-free windows following a gap, while the `i128` guard certifies every window. That example is synthetic; the real-data run used a public sample that is not redistributed here.
+
+**How to use it on real data (checklist):**
+1. Quantise to integers: price → ticks (`round(price / tick_size)`), time → integer milliseconds, volume → integer lots. These integers are the path coordinates; `scale` is the real-units-per-integer factor if you want outputs in real units.
+2. Pick `i64` or `i128` from the guard, not by guessing. The state is exact when `L1^N < 2^(BITS-1)`, where `L1` is the sum of the absolute integer increments in the window (over all coordinates). Largest certifiable window L1: N=2: 3.0e9 (i64) / 1.3e19 (i128); N=3: 2.1e6 / 5.5e12; N=4: 5.5e4 / 3.6e9; N=5: 6.2e3 / 4.4e7.
+3. Check `guard_ok()` for every window you consume (see the Python example). Drop or recompute windows it does not certify; never silently use them.
+4. Prefer `i128` if any coordinate can jump (clock gaps, auction prints, halts). Use `i64` for bounded bar data at coarse units.
+5. Keep the path dimension d small: cost grows as d^N. d=15, N=3, W=336 ran at 39 µs per window (i64) on real EURUSD hourly data, against 243 µs for recomputing with pySigLib.
+
+**Runnable examples:** `python/examples/quant_ticks.py` (per-window guard, feature matrix, `i64` vs `i128`), `examples/quant_gap.rs` (float failure mechanism), `examples/logsig.rs` (log-signatures from a text stream).
+
+**Evaluating at a fund or desk:** a free 30-day evaluation is permitted; commercial use needs a licence. See [COMMERCIAL.md](https://github.com/metapozza/sigring/blob/main/COMMERCIAL.md) and [Contact](#contact).
+
 ## What it is (and is not)
 
 * **Is:** an exact integer formulation of the sliding signature update `S' = E(-old) ⊗ S ⊗ E(new)` on the factorial-cleared state `t_n = n!·S_n·K^n`, using a division-free Horner kernel; a rigorous guard; exact arbitrary-interval queries (`PrefixStore`, antipode instead of a float inverse); log-signatures (Lyndon words / Lyndon-bracket coordinates, log taken in f64 at readout).
-* **Is not:** a new signature algorithm. The Horner "fused multiply-exponentiate" form is Signatory's (Kidger & Lyons 2020); sliding-window aggregation in general is a known problem (Tangwongsan et al., SWAG). What is specific here is the exact integer ring formulation, the guard theorem, determinism, and no per-window recomputation. See `docs/LITERATURE.md`.
+* **Is not:** a new signature algorithm. The Horner "fused multiply-exponentiate" form is Signatory's (Kidger & Lyons 2020); sliding-window aggregation in general is a known problem (Tangwongsan et al., SWAG). What is specific here is the exact integer ring formulation, the guard theorem, determinism, and no per-window recomputation. See [`docs/LITERATURE.md`](https://github.com/metapozza/sigring/blob/main/docs/LITERATURE.md).
 * **Is not** a differentiable / GPU / batch-training library. Use `pySigLib`, `signax`, `iisignature` or `pathsig` for that.
 
 ## Guard theorem
@@ -67,6 +84,13 @@ Reproducing the hashes: `det/ref.txt` holds the reference hashes. `cargo run --r
 
 `cargo test --release`: sliding == recompute (i64, i128), Horner == naive (bit-identical), exact interval queries (including when the prefixes themselves overflowed `i64`), antipode is the group inverse, `|t_m| ≤ L1^m`, log-signature of a single segment, Witt-formula Lyndon counts.
 
+## Contact
+
+- Questions and bug reports: [GitHub Issues](https://github.com/metapozza/sigring/issues) and [Discussions](https://github.com/metapozza/sigring/discussions).
+- Evaluation help, commercial licensing, collaboration, or roles: **metapozza@proton.me** (Matteo Pozza). Open to quant developer / quant researcher roles.
+- Security reports: see [SECURITY.md](https://github.com/metapozza/sigring/blob/main/SECURITY.md).
+- Citing: use the "Cite this repository" button (`CITATION.cff`).
+
 ## License
 
-Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE) — free for personal, research, educational and non-profit use; commercial use needs a licence. See [COMMERCIAL.md](COMMERCIAL.md) (includes a free 30-day evaluation permission). This is not an OSI-approved open-source licence.
+Source-available under the [PolyForm Noncommercial License 1.0.0](https://github.com/metapozza/sigring/blob/main/LICENSE) — free for personal, research, educational and non-profit use; commercial use needs a licence. See [COMMERCIAL.md](https://github.com/metapozza/sigring/blob/main/COMMERCIAL.md) (includes a free 30-day evaluation permission). This is not an OSI-approved open-source licence.

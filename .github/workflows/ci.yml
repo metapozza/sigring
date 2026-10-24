@@ -11,3 +11,27 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --release
       - run: cargo run --release --example det_hash -- 2 4 64 20000 20000 64
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install maturin numpy
+      - name: Build wheel against the checked-out crate
+        working-directory: python
+        run: |
+          mkdir -p .cargo
+          printf '[patch.crates-io]\nsigring = { path = ".." }\n' > .cargo/config.toml
+          maturin build --release -o dist
+      - run: pip install python/dist/*.whl
+      - name: Run the quant example
+        run: cd /tmp && python "$GITHUB_WORKSPACE/python/examples/quant_ticks.py"
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo run --release --example quant_gap
