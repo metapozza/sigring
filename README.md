@@ -14,6 +14,13 @@ assert!(eng.guard_ok());                              // rigorous overflow certi
 let sig = eng.signature(1e4);                         // levels 1..=n in real units
 ```
 
+## Install
+
+```bash
+cargo add sigring            # Rust (crates.io)
+pip install sigring numpy    # Python wheel (CPython >= 3.9, Linux x86_64 wheel; other platforms build from source and need a Rust toolchain)
+```
+
 ## What it is (and is not)
 
 * **Is:** an exact integer formulation of the sliding signature update `S' = E(-old) ⊗ S ⊗ E(new)` on the factorial-cleared state `t_n = n!·S_n·K^n`, using a division-free Horner kernel; a rigorous guard; exact arbitrary-interval queries (`PrefixStore`, antipode instead of a float inverse); log-signatures (Lyndon words / Lyndon-bracket coordinates, log taken in f64 at readout).
@@ -26,7 +33,7 @@ Every entry of the scaled state satisfies `|t_m| ≤ L1^m`, where `L1` is the sl
 
 ## Measured (read the caveats)
 
-All numbers from one 2-core 2.1 GHz Xeon sandbox, ±25% run-to-run noise. Reproduce with `cargo run --release --example bench_kernels` and the Python scripts in `python/bench/`.
+All numbers from one 2-core 2.1 GHz Xeon sandbox, ±25% run-to-run noise. Reproduce with `cd bench/sigbench && cargo build --release && ./target/release/sigbench bench <int64|int|fused_float_h|twostack_h|recompute> <d> <N> <W> <ticks> <kind>` (kind 0 = random walk), `cargo run --release --example bench_kernels` (naive vs Horner kernel), and the Python scripts in `python/bench/` (need `pysiglib`/`iisignature`). Real-market-data inputs and the pipeline-shape script are not included in this repo; those numbers are reported as measured, not as reproducible from here.
 
 | (d, N, W) | i64 ring | i128 ring | f64 fused (inverse, Horner) | f64 two-stack (Horner) |
 |---|---|---|---|---|
@@ -45,6 +52,8 @@ All numbers from one 2-core 2.1 GHz Xeon sandbox, ±25% run-to-run noise. Reprod
 ## Determinism
 
 State hashes are identical across 8 Rust build variants and an independent C port on x86 (gcc/clang), aarch64, riscv64, ppc64 (BE), s390x (BE), arm32 and mips32 (BE, i64 only), and wasm32 (node). This holds by construction for integer arithmetic. Note a plain-f64 *Rust* build was also bit-identical across our 6 x86 variants; the practical advantage is for C/C++ libraries (FMA contraction split a C float control into two bit patterns), threaded/GPU reductions and cross-architecture reproducibility.
+
+Reproducing the hashes: `det/ref.txt` holds the reference hashes. `cargo run --release --example det_hash -- 2 4 64 200000 50000 64` and the independent C port (`gcc -O2 -DWORD=64 det/det.c -o detc && ./detc 2 4 64 200000 50000`) both print the `2 4 64 64 ...` lines of `det/ref.txt`. The cross-architecture runs used qemu-user and cross GCC toolchains (not scripted here); CI re-runs the hash on Linux, macOS (arm64) and Windows runners.
 
 ## Limitations
 

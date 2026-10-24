@@ -1,5 +1,5 @@
-import numpy as np, time, sigring_py, pysiglib
-from sigring_py import WindowSig
+import numpy as np, time, sigring, pysiglib
+from sigring import WindowSig
 def tm(f,rep=5):
     b=1e9
     for _ in range(rep):
