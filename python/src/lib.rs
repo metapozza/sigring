@@ -73,4 +73,4 @@ impl WindowSig {
     fn state(&self) -> Vec<i128> { match &self.eng { Eng::I64(e) => e.t.iter().map(|&x| x as i128).collect(), Eng::I128(e) => e.t.clone() } }
 }
 #[pymodule]
-fn sigring_py(m: &Bound<'_, PyModule>) -> PyResult<()> { m.add_class::<WindowSig>()?; Ok(()) }
+fn _sigring(m: &Bound<'_, PyModule>) -> PyResult<()> { m.add_class::<WindowSig>()?; Ok(()) }
